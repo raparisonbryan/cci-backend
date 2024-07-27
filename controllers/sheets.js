@@ -12,11 +12,14 @@ const sheetMethods = require("../services/GoogleSheetsService");
  * @param {*} res
  * @param {*} next
  */
-exports.getSheetValues = (req, res, next) => {
+exports.getSheetValues = async (req, res, next) => {
   try {
     const spreadsheetId = sheetId;
     const range = sheetRange;
-    const values = sheetMethods.getSpreadSheetValues(spreadsheetId, range);
+    const values = await sheetMethods.getSpreadSheetValues(
+      spreadsheetId,
+      range
+    );
     res.status(200).json(values);
   } catch (error) {
     res.status(500).send("Error retrieving sheet data");
