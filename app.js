@@ -6,6 +6,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const helmet = require("helmet");
 const userRoutes = require("./routes/user");
+const sheetRoutes = require("./routes/sheet");
 
 const app = express();
 
@@ -19,11 +20,7 @@ const dbName = process.env.DB_NAME;
 
 mongoose
   .connect(
-    `mongodb+srv://${dbUser}:${dbPass}@${dbHost}/${dbName}?retryWrites=true&w=majority`,
-    {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    }
+    `mongodb+srv://${dbUser}:${dbPass}@${dbHost}/${dbName}?retryWrites=true&w=majority`
   )
   .then(() => console.log("Connexion à MongoDB réussie !"))
   .catch(() => console.log("Connexion à MongoDB échouée !"));
@@ -57,6 +54,7 @@ app.use(express.json());
  * * Routes
  */
 app.use("/user", userRoutes);
+app.use("/sheets", sheetRoutes);
 
 /**
  * * Exports
