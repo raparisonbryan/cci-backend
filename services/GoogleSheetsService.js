@@ -18,8 +18,39 @@ async function getSpreadSheet(spreadsheetId) {
 
 async function getSpreadSheetValues(spreadsheetId, range) {
   const sheets = google.sheets({ version: "v4", auth: await getAuthToken() });
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range });
-  return res.data.values;
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range,
+    majorDimension: "ROWS",
+  });
+  const rows = res.data.values || [];
+  const maxColumns = 7;
+
+  rows.forEach((row) => {
+    while (row.length < maxColumns) {
+      row.push("");
+    }
+  });
+
+  return rows;
 }
 
-module.exports = { getSpreadSheet, getSpreadSheetValues };
+async function updateSpreadSheetValues(spreadsheetId, range, values) {
+  const sheets = google.sheets({ version: "v4", auth: await getAuthToken() });
+  const resource = {
+    values,
+  };
+  const res = await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range,
+    valueInputOption: "RAW",
+    resource,
+  });
+  return res.data;
+}
+
+module.exports = {
+  getSpreadSheet,
+  getSpreadSheetValues,
+  updateSpreadSheetValues,
+};
