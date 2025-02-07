@@ -1,18 +1,14 @@
 /**
  * imports
  */
-
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const sheetControl = require("../controllers/sheets");
+const sheetController = require('../controllers/sheets.js');
 
-/**
- * * Routes
- */
-router.get("/data", sheetControl.getSheetValues);
-router.post("/data", sheetControl.updateSheetValues);
+// Routes
+router.get('/', sheetController.getData);
+router.post('/', sheetController.updateData);
+router.post('/delete', sheetController.deleteRow);
+router.post('/insert', sheetController.insertRow);
 
-/**
- * * Export
- */
 module.exports = router;

@@ -1,62 +1,24 @@
-/**
- * * Imports
- */
-require("dotenv").config();
-const express = require("express");
-const mongoose = require("mongoose");
-const helmet = require("helmet");
-const userRoutes = require("./routes/user");
-const sheetRoutes = require("./routes/sheet");
+const express = require('express');
+const cors = require('cors');
+const sheetRoutes = require('./routes/sheet.js');
+const WebSocketService  = require('./services/websocketService');
 
 const app = express();
+const wsService = new WebSocketService();
 
-/*
- * * Connexion à la base de données MongoDB
- */
-const dbUser = process.env.DB_USER;
-const dbPass = process.env.DB_PASSWORD;
-const dbHost = process.env.DB_LINK;
-const dbName = process.env.DB_NAME;
-
-mongoose
-  .connect(
-    `mongodb+srv://${dbUser}:${dbPass}@${dbHost}/${dbName}?retryWrites=true&w=majority`
-  )
-  .then(() => console.log("Connexion à MongoDB réussie !"))
-  .catch(() => console.log("Connexion à MongoDB échouée !"));
-
-//Securité en définissant divers en-têtes HTTP
-app.use(
-  helmet({
-    crossOriginResourcePolicy: false,
-  })
-);
-
-/**
- * * Régler les problèmes de CORS
- */
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content, Accept, Content-Type, Authorization"
-  );
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-  );
-  next();
-});
-
+// Middleware
+app.use(cors());
 app.use(express.json());
 
-/**
- * * Routes
- */
-app.use("/user", userRoutes);
-app.use("/sheets", sheetRoutes);
+// Routes
+app.use('/api/sheets', sheetRoutes);
 
-/**
- * * Exports
- */
-module.exports = app;
+// Start servers
+const PORT = process.env.PORT || 3000;
+const WS_PORT = process.env.WS_PORT || 8080;
+
+app.listen(PORT, () => {
+  console.log(`HTTP server running on port ${PORT}`);
+});
+
+wsService.start(Number(WS_PORT));
