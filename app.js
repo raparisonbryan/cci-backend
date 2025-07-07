@@ -14,8 +14,8 @@ app.use(express.json());
 app.use('/api/sheets', sheetRoutes);
 
 // Start servers
-const PORT = process.env.PORT || 3000;
-const WS_PORT = process.env.WS_PORT || 8080;
+const PORT = 3001;
+const WS_PORT = 8080;
 
 app.listen(PORT, () => {
   console.log(`HTTP server running on port ${PORT}`);
