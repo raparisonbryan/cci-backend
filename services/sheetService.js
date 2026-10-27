@@ -66,33 +66,45 @@ async function getSheetId(sheets, spreadsheetId, sheetName) {
 }
 
 /**
- * Insère ou supprime une ligne d'une feuille de calcul
- * @param {string} spreadsheetId - ID du classeur
- * @param {string} range - Plage contenant la ligne
- * @param {'insertDimension'|'deleteDimension'} operation - Opération à effectuer
- * @returns {Promise<Object>} - Réponse de l'API
+ * Crée une erreur de conflit (renvoyée en 409 par le contrôleur)
+ * @param {string} message - Message d'erreur
+ * @returns {Error}
  */
-async function updateRowDimension(spreadsheetId, range, operation) {
-    const sheets = getGoogleSheets();
-    const { sheetName, rowIndex } = parseRowRange(range);
-    const sheetId = await getSheetId(sheets, spreadsheetId, sheetName);
+function conflict(message) {
+    const error = new Error(message);
+    error.status = 409;
+    return error;
+}
 
-    const response = await sheets.spreadsheets.batchUpdate({
-        spreadsheetId,
-        requestBody: {
-            requests: [{
-                [operation]: {
-                    range: {
-                        sheetId: sheetId,
-                        dimension: 'ROWS',
-                        startIndex: rowIndex,
-                        endIndex: rowIndex + 1
-                    }
-                }
-            }]
+/**
+ * Vérifie que la ligne contient toujours les valeurs vues par le client,
+ * pour ne pas agir sur une autre ligne si le tableau a bougé entre-temps
+ * @param {string} spreadsheetId - ID du classeur
+ * @param {string} sheetName - Nom de la feuille
+ * @param {number} rowIndex - Index (base 0) de la ligne
+ * @param {Array} expectedRow - Valeurs attendues
+ */
+async function assertRowUnchanged(spreadsheetId, sheetName, rowIndex, expectedRow) {
+    const rowNumber = rowIndex + 1;
+    const [currentRow = []] = await exports.getData(spreadsheetId, `${sheetName}!A${rowNumber}:Z${rowNumber}`);
+
+    const length = Math.max(currentRow.length, expectedRow.length);
+    for (let i = 0; i < length; i++) {
+        if (String(currentRow[i] ?? '').trim() !== String(expectedRow[i] ?? '').trim()) {
+            throw conflict(`La ligne ${rowNumber} a été modifiée entre-temps`);
         }
-    });
-    return response.data;
+    }
+}
+
+/**
+ * Convertit une valeur en cellule pour l'API batchUpdate (équivalent de valueInputOption RAW)
+ * @param {*} value
+ * @returns {Object}
+ */
+function toCellData(value) {
+    if (typeof value === 'number') return { userEnteredValue: { numberValue: value } };
+    if (typeof value === 'boolean') return { userEnteredValue: { boolValue: value } };
+    return { userEnteredValue: { stringValue: String(value ?? '') } };
 }
 
 /**
@@ -149,14 +161,35 @@ exports.updateData = async (spreadsheetId, range, values) => {
 };
 
 /**
- * Supprime une ligne d'une feuille de calcul
+ * Supprime une ligne d'une feuille de calcul, si elle n'a pas changé
  * @param {string} spreadsheetId - ID du classeur
  * @param {string} range - Plage contenant la ligne à supprimer
+ * @param {Array} expectedRow - Contenu de la ligne vu par le client
  * @returns {Promise<Object>} - Réponse de l'API
  */
-exports.deleteRow = async (spreadsheetId, range) => {
+exports.deleteRow = async (spreadsheetId, range, expectedRow) => {
     try {
-        return await updateRowDimension(spreadsheetId, range, 'deleteDimension');
+        const sheets = getGoogleSheets();
+        const { sheetName, rowIndex } = parseRowRange(range);
+        const sheetId = await getSheetId(sheets, spreadsheetId, sheetName);
+        await assertRowUnchanged(spreadsheetId, sheetName, rowIndex, expectedRow);
+
+        const response = await sheets.spreadsheets.batchUpdate({
+            spreadsheetId,
+            requestBody: {
+                requests: [{
+                    deleteDimension: {
+                        range: {
+                            sheetId: sheetId,
+                            dimension: 'ROWS',
+                            startIndex: rowIndex,
+                            endIndex: rowIndex + 1
+                        }
+                    }
+                }]
+            }
+        });
+        return response.data;
     } catch (error) {
         console.error('Erreur lors de la suppression de la ligne:', error);
         throw error;
@@ -164,14 +197,45 @@ exports.deleteRow = async (spreadsheetId, range) => {
 };
 
 /**
- * Insère une ligne dans une feuille de calcul
+ * Insère une ligne et ses valeurs en une seule opération, si la ligne de référence n'a pas changé
  * @param {string} spreadsheetId - ID du classeur
  * @param {string} range - Plage où insérer la nouvelle ligne
+ * @param {Array} expectedRow - Contenu actuel de la ligne à cette position, vu par le client
+ * @param {Array} values - Valeurs de la nouvelle ligne
  * @returns {Promise<Object>} - Réponse de l'API
  */
-exports.insertRow = async (spreadsheetId, range) => {
+exports.insertRow = async (spreadsheetId, range, expectedRow, values = []) => {
     try {
-        return await updateRowDimension(spreadsheetId, range, 'insertDimension');
+        const sheets = getGoogleSheets();
+        const { sheetName, rowIndex } = parseRowRange(range);
+        const sheetId = await getSheetId(sheets, spreadsheetId, sheetName);
+        await assertRowUnchanged(spreadsheetId, sheetName, rowIndex, expectedRow);
+
+        const requests = [{
+            insertDimension: {
+                range: {
+                    sheetId: sheetId,
+                    dimension: 'ROWS',
+                    startIndex: rowIndex,
+                    endIndex: rowIndex + 1
+                }
+            }
+        }];
+        if (values.length) {
+            requests.push({
+                updateCells: {
+                    start: { sheetId: sheetId, rowIndex, columnIndex: 0 },
+                    rows: [{ values: values.map(toCellData) }],
+                    fields: 'userEnteredValue'
+                }
+            });
+        }
+
+        const response = await sheets.spreadsheets.batchUpdate({
+            spreadsheetId,
+            requestBody: { requests }
+        });
+        return response.data;
     } catch (error) {
         console.error('Erreur lors de l\'insertion de la ligne:', error);
         throw error;

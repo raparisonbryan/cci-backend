@@ -91,10 +91,13 @@ exports.updateData = async (req, res, next) => {
  */
 exports.deleteRow = async (req, res, next) => {
   try {
-    const { spreadsheetId, range } = req.body;
+    const { spreadsheetId, range, expectedRow } = req.body;
     if (!hasValidTarget(res, spreadsheetId, range)) return;
+    if (!Array.isArray(expectedRow)) {
+      return res.status(400).send("expectedRow must be an array");
+    }
 
-    const response = await sheetService.deleteRow(spreadsheetId, range);
+    const response = await sheetService.deleteRow(spreadsheetId, range, expectedRow);
     res.status(200).json(response);
   } catch (error) {
     sendError(res, error, "Error deleting row");
@@ -109,10 +112,13 @@ exports.deleteRow = async (req, res, next) => {
  */
 exports.insertRow = async (req, res, next) => {
   try {
-    const { spreadsheetId, range } = req.body;
+    const { spreadsheetId, range, expectedRow, values = [] } = req.body;
     if (!hasValidTarget(res, spreadsheetId, range)) return;
+    if (!Array.isArray(expectedRow) || !Array.isArray(values)) {
+      return res.status(400).send("expectedRow and values must be arrays");
+    }
 
-    const response = await sheetService.insertRow(spreadsheetId, range);
+    const response = await sheetService.insertRow(spreadsheetId, range, expectedRow, values);
     res.status(200).json(response);
   } catch (error) {
     sendError(res, error, "Error inserting row");
