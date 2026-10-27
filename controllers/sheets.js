@@ -64,9 +64,12 @@ exports.updateData = async (req, res, next) => {
       return res.status(400).send("values must be an array of rows");
     }
 
+    // Plage réellement couverte par values (la vérification et l'écriture portent sur la même zone)
+    const writeRange = sheetService.getWriteRange(range, values);
+
     // Un utilisateur "user" ne peut que remplir des cellules vides
     if (req.user.role === "user") {
-      const current = await sheetService.getData(spreadsheetId, range);
+      const current = await sheetService.getData(spreadsheetId, writeRange);
       const overwritesCell = values.some((row, i) => row.some((value, j) => {
         const existing = String(current[i]?.[j] ?? "");
         return existing.trim() !== "" && String(value) !== existing;
@@ -76,7 +79,7 @@ exports.updateData = async (req, res, next) => {
       }
     }
 
-    const response = await sheetService.updateData(spreadsheetId, range, values);
+    const response = await sheetService.updateData(spreadsheetId, writeRange, values);
     res.status(200).json(response);
   } catch (error) {
     sendError(res, error, "Error updating sheet data");

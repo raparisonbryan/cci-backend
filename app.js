@@ -5,6 +5,11 @@ const sheetRoutes = require('./routes/sheet.js');
 const WebSocketService  = require('./services/websocketService');
 const { readList } = require('./utils/config.js');
 
+if (!process.env.NEXTAUTH_SECRET) {
+  console.error('NEXTAUTH_SECRET non défini : impossible de vérifier les sessions, arrêt du serveur');
+  process.exit(1);
+}
+
 const allowedOrigins = readList('CORS_ORIGIN');
 if (!allowedOrigins.length) {
   console.warn('CORS_ORIGIN non défini : toutes les origines sont autorisées');

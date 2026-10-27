@@ -34,6 +34,54 @@ function parseRowRange(range) {
 }
 
 /**
+ * Convertit des lettres de colonne en numéro (A -> 1, Z -> 26, AA -> 27)
+ * @param {string} letters
+ * @returns {number}
+ */
+function columnToNumber(letters) {
+    return letters.toUpperCase().split('').reduce((total, char) => total * 26 + char.charCodeAt(0) - 64, 0);
+}
+
+/**
+ * Convertit un numéro de colonne en lettres (1 -> A, 27 -> AA)
+ * @param {number} number
+ * @returns {string}
+ */
+function numberToColumn(number) {
+    let letters = '';
+    while (number > 0) {
+        const remainder = (number - 1) % 26;
+        letters = String.fromCharCode(65 + remainder) + letters;
+        number = Math.floor((number - 1) / 26);
+    }
+    return letters;
+}
+
+/**
+ * Calcule la plage réellement écrite par values à partir de la cellule de départ de range.
+ * Google écrit toutes les valeurs à partir de cette cellule, même si range est plus petite.
+ * @param {string} range - Plage de la forme 'Feuille!E5' ou 'Feuille!A5:G5'
+ * @param {Array<Array>} values - Lignes à écrire
+ * @returns {string} - Plage exacte, ex: 'Feuille!E5:E7'
+ */
+exports.getWriteRange = (range, values) => {
+    const match = /^(.+)!([A-Z]+)(\d+)(?::[A-Z]+\d*)?$/i.exec(range ?? '');
+    if (!match) {
+        throw badRequest(`Plage invalide : "${range}"`);
+    }
+
+    const width = Math.max(0, ...values.map(row => row.length));
+    if (!values.length || !width) {
+        throw badRequest('Aucune valeur à écrire');
+    }
+
+    const [, sheetName, startColumn, startRow] = match;
+    const endColumn = numberToColumn(columnToNumber(startColumn) + width - 1);
+    const endRow = Number(startRow) + values.length - 1;
+    return `${sheetName}!${startColumn.toUpperCase()}${startRow}:${endColumn}${endRow}`;
+};
+
+/**
  * Récupère le sheetId à partir du nom de la feuille
  * @param {Object} sheets - Instance de l'API Google Sheets
  * @param {string} spreadsheetId - ID du classeur
