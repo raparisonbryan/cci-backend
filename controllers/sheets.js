@@ -1,8 +1,36 @@
 /**
  * imports
  */
-require("dotenv").config();
 const sheetService = require("../services/sheetService.js");
+
+/**
+ * *renvoyer une erreur en conservant le statut HTTP d'origine (validation ou API Google)
+ * @param {*} res
+ * @param {*} error
+ * @param {string} message
+ */
+function sendError(res, error, message) {
+  const status = error.status ?? error.response?.status;
+  if (status >= 400 && status < 500) {
+    return res.status(status).send(`${message}: ${error.message}`);
+  }
+  res.status(500).send(message);
+}
+
+/**
+ * *vérifier que spreadsheetId et range sont des chaînes non vides
+ * @param {*} res
+ * @param {string} spreadsheetId
+ * @param {string} range
+ * @returns {boolean}
+ */
+function hasValidTarget(res, spreadsheetId, range) {
+  if (typeof spreadsheetId !== "string" || !spreadsheetId || typeof range !== "string" || !range) {
+    res.status(400).send("Missing spreadsheetId or range");
+    return false;
+  }
+  return true;
+}
 
 /**
  * *récupérer les informations du tableur
@@ -13,14 +41,12 @@ const sheetService = require("../services/sheetService.js");
 exports.getData = async (req, res, next) => {
   try {
     const { spreadsheetId, range } = req.query;
-    if (!spreadsheetId || !range) {
-      return res.status(400).send("Missing spreadsheetId or range");
-    }
+    if (!hasValidTarget(res, spreadsheetId, range)) return;
 
     const data = await sheetService.getData(spreadsheetId, range);
     res.status(200).json(data);
   } catch (error) {
-    res.status(500).send("Error retrieving sheet data");
+    sendError(res, error, "Error retrieving sheet data");
   }
 };
 
@@ -33,10 +59,15 @@ exports.getData = async (req, res, next) => {
 exports.updateData = async (req, res, next) => {
   try {
     const { spreadsheetId, range, values } = req.body;
+    if (!hasValidTarget(res, spreadsheetId, range)) return;
+    if (!Array.isArray(values) || !values.every(Array.isArray)) {
+      return res.status(400).send("values must be an array of rows");
+    }
+
     const response = await sheetService.updateData(spreadsheetId, range, values);
     res.status(200).json(response);
   } catch (error) {
-    res.status(500).send("Error updating sheet data");
+    sendError(res, error, "Error updating sheet data");
   }
 };
 
@@ -49,10 +80,12 @@ exports.updateData = async (req, res, next) => {
 exports.deleteRow = async (req, res, next) => {
   try {
     const { spreadsheetId, range } = req.body;
+    if (!hasValidTarget(res, spreadsheetId, range)) return;
+
     const response = await sheetService.deleteRow(spreadsheetId, range);
     res.status(200).json(response);
   } catch (error) {
-    res.status(500).send("Error deleting row");
+    sendError(res, error, "Error deleting row");
   }
 };
 
@@ -65,9 +98,11 @@ exports.deleteRow = async (req, res, next) => {
 exports.insertRow = async (req, res, next) => {
   try {
     const { spreadsheetId, range } = req.body;
+    if (!hasValidTarget(res, spreadsheetId, range)) return;
+
     const response = await sheetService.insertRow(spreadsheetId, range);
     res.status(200).json(response);
   } catch (error) {
-    res.status(500).send("Error inserting row");
+    sendError(res, error, "Error inserting row");
   }
 };

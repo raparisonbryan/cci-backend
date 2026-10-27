@@ -1,5 +1,9 @@
+const path = require('path');
 const { google } = require('googleapis');
-const credentials = require('../credentials.json');
+
+// Chemin du fichier de compte de service (par défaut : credentials.json à la racine du projet)
+const keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS
+    || path.join(__dirname, '..', 'credentials.json');
 
 let auth = null;
 let sheetsApi = null;
@@ -7,7 +11,7 @@ let sheetsApi = null;
 function getGoogleAuth() {
     if (!auth) {
         auth = new google.auth.GoogleAuth({
-            credentials,
+            keyFile,
             scopes: ['https://www.googleapis.com/auth/spreadsheets']
         });
     }

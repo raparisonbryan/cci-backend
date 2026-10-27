@@ -2,3 +2,4 @@
 .env.local
 credentials.json
 .idea
+.env
