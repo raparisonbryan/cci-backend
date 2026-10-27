@@ -64,6 +64,18 @@ exports.updateData = async (req, res, next) => {
       return res.status(400).send("values must be an array of rows");
     }
 
+    // Un utilisateur "user" ne peut que remplir des cellules vides
+    if (req.user.role === "user") {
+      const current = await sheetService.getData(spreadsheetId, range);
+      const overwritesCell = values.some((row, i) => row.some((value, j) => {
+        const existing = String(current[i]?.[j] ?? "");
+        return existing.trim() !== "" && String(value) !== existing;
+      }));
+      if (overwritesCell) {
+        return res.status(403).send("Seules les cellules vides peuvent être modifiées");
+      }
+    }
+
     const response = await sheetService.updateData(spreadsheetId, range, values);
     res.status(200).json(response);
   } catch (error) {

@@ -3,16 +3,19 @@ const express = require('express');
 const cors = require('cors');
 const sheetRoutes = require('./routes/sheet.js');
 const WebSocketService  = require('./services/websocketService');
+const { readList } = require('./utils/config.js');
 
-const app = express();
-const wsService = new WebSocketService();
-
-// Middleware
-const allowedOrigins = process.env.CORS_ORIGIN?.split(',').map(origin => origin.trim()).filter(Boolean);
-if (!allowedOrigins?.length) {
+const allowedOrigins = readList('CORS_ORIGIN');
+if (!allowedOrigins.length) {
   console.warn('CORS_ORIGIN non défini : toutes les origines sont autorisées');
 }
-app.use(cors(allowedOrigins?.length ? { origin: allowedOrigins } : undefined));
+
+const app = express();
+const wsService = new WebSocketService({ allowedOrigins });
+
+// Middleware
+// credentials: true pour que le navigateur envoie le cookie de session NextAuth
+app.use(cors({ origin: allowedOrigins.length ? allowedOrigins : true, credentials: true }));
 app.use(express.json());
 
 // Routes
